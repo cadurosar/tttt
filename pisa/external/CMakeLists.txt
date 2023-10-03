@@ -20,7 +20,6 @@ target_compile_options(streamvbyte PRIVATE -Wno-cast-align
                                            -Wno-incompatible-pointer-types
                                            -Wno-implicit-function-declaration
 )
-target_compile_options(streamvbyte INTERFACE -Wno-unused-function)
 
 # Add maskedvbyte
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/MaskedVByte/include)
@@ -61,7 +60,6 @@ set(Porter2_ENABLE_TESTING OFF CACHE BOOL "skip Porter2 testing")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/Porter2)
 
 # Add KrovetzStemmer
-include_directories(${CMAKE_CURRENT_SOURCE_DIR}/KrovetzStemmer/include)
 set(KrovetzStemmer_ENABLE_TESTING OFF CACHE BOOL "skip KrovetzStemmer testing")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/KrovetzStemmer)
 
@@ -82,13 +80,11 @@ target_compile_options(wapopp PRIVATE -Wno-error=all -Wno-missing-braces)
 
 # Add fmt
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/fmt)
-target_compile_options(fmt INTERFACE -Wno-deprecated-declarations)
 
 # Add spdlog
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/spdlog)
 
 # Add range-v3
-set(RANGES_CXX_STD ${CMAKE_CXX_STANDARD})
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/range-v3)
 
 # Add RapidCheck
@@ -99,19 +95,3 @@ target_compile_options(rapidcheck PRIVATE -Wno-error)
 set(TAILY_ENABLE_TESTING OFF CACHE BOOL "skip taily testing")
 set(TAILY_BUILD_EXAMPLE OFF CACHE BOOL "skip taily example")
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/taily)
-target_compile_options(taily INTERFACE -Wno-unused-variable)
-
-if (NOT PISA_SYSTEM_ONETBB)
-    # Add TBB
-    set(TBB_TEST OFF CACHE BOOL "skip TBB testing")
-    set(TBB_STRICT OFF CACHE BOOL "don't fail on warnings")
-    set(TBB_SANITIZE OFF CACHE BOOL "don't sanitize TBB")
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/oneTBB)
-endif()
-
-if (PISA_ENABLE_TESTING AND NOT PISA_SYSTEM_GOOGLE_BENCHMARK)
-    set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "skip Google Benchmark testing")
-    set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "skip Google Benchmark testing")
-    set(BENCHMARK_ENABLE_WERROR OFF CACHE BOOL "disable -Werror")
-    add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/benchmark)
-endif()
