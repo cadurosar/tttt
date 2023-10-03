@@ -1,0 +1,72 @@
+[submodule "external/FastPFor"]
+	path = external/FastPFor
+	url = https://github.com/lemire/FastPFor.git
+[submodule "external/CMake-codecov"]
+	path = external/CMake-codecov
+	url = https://github.com/RWTH-HPC/CMake-codecov.git
+[submodule "external/streamvbyte"]
+	path = external/streamvbyte
+	url = https://github.com/lemire/streamvbyte
+[submodule "external/MaskedVByte"]
+	path = external/MaskedVByte
+	url = https://github.com/lemire/MaskedVByte
+[submodule "external/QMX"]
+	path = external/QMX
+	url = https://github.com/amallia/QMX.git
+[submodule "external/simdcomp"]
+	path = external/simdcomp
+	url = https://github.com/lemire/simdcomp.git
+[submodule "external/CLI11"]
+	path = external/CLI11
+	url = https://github.com/CLIUtils/CLI11.git
+[submodule "external/parallelstl"]
+	path = external/parallelstl
+	url = https://github.com/intel/parallelstl.git
+[submodule "external/tbb"]
+	path = external/tbb
+	url = https://github.com/01org/tbb.git
+[submodule "external/mio"]
+	path = external/mio
+	url = https://github.com/mandreyel/mio.git
+[submodule "external/GSL"]
+	path = external/GSL
+	url = https://github.com/Microsoft/GSL.git
+[submodule "external/gumbo-parser"]
+	path = external/gumbo-parser
+	url = https://github.com/google/gumbo-parser.git
+[submodule "external/Catch2"]
+	path = external/Catch2
+	url = https://github.com/catchorg/Catch2.git
+[submodule "external/boost-cmake"]
+	path = external/boost-cmake
+	url = https://github.com/Orphis/boost-cmake.git
+[submodule "external/Porter2"]
+	path = external/Porter2
+	url = https://github.com/pisa-engine/Porter2.git
+[submodule "external/warcpp"]
+	path = external/warcpp
+	url = https://github.com/pisa-engine/warcpp.git
+[submodule "external/spdlog"]
+	path = external/spdlog
+	url = https://github.com/gabime/spdlog.git
+[submodule "external/fmt"]
+	path = external/fmt
+	url = https://github.com/fmtlib/fmt.git
+[submodule "external/range-v3"]
+	path = external/range-v3
+	url = https://github.com/ericniebler/range-v3.git
+[submodule "external/trecpp"]
+	path = external/trecpp
+	url = https://github.com/pisa-engine/trecpp.git
+[submodule "external/KrovetzStemmer"]
+	path = external/KrovetzStemmer
+	url = https://github.com/pisa-engine/KrovetzStemmer.git
+[submodule "external/wapopp"]
+	path = external/wapopp
+	url = https://github.com/pisa-engine/wapopp.git
+[submodule "external/rapidcheck"]
+	path = external/rapidcheck
+	url = https://github.com/emil-e/rapidcheck.git
+[submodule "external/taily"]
+	path = external/taily
+	url = https://github.com/pisa-engine/taily.git
