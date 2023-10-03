@@ -1,5 +1,5 @@
 #!/bin/bash
-python setup.py bdist_wheel
-python patcher.py dist/ 
-pip uninstall -qy pyterrier_pisa
-pip install dist/*.whl
+python3 setup.py bdist_wheel
+python3 patcher.py dist/ 
+pip3 uninstall -qy pyterrier_pisa
+pip3 install dist/*.whl

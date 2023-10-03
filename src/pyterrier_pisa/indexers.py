@@ -105,6 +105,7 @@ class PisaToksIndexer(PisaIndexer):
             f_did.write(np.array([l] + inv_did[i], dtype=np.uint32).tobytes())
             f_score.write(np.array([l] + inv_score[i], dtype=np.uint32).tobytes())
           f_len.write(np.array([len(lens)] + lens, dtype=np.uint32).tobytes())
+        
     _pisathon.merge_inv(str(path/'inv'), bidx+1, len(lexicon))
     for i in range(bidx+1):
       (path/f'inv.batch.{i}.docs').unlink()

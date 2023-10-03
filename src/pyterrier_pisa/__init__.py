@@ -90,6 +90,9 @@ def log_level(on=True):
   _pisathon.log_level(1 if on else 0)
 
 
+class SimplePisaIndex():
+  pass
+
 class PisaIndex(pt.Indexer):
   def __init__(self,
       path: str,

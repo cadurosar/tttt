@@ -68,7 +68,6 @@
 #include "docvectors/util.hpp"
 
 
-
 using pisa::Document_Record;
 using pisa::Forward_Index_Builder;
 using ranges::views::enumerate;
@@ -238,51 +237,6 @@ static PyObject *py_prepare_index(PyObject *self, PyObject *args, PyObject *kwar
   Py_RETURN_NONE;
 }
 
-document_index * fwd_index;
-bool loaded = false;
-
-static PyObject *py_prepare_fwd(PyObject *self, PyObject *args, PyObject *kwargs) {
-  if (loaded)
-  {
-    loaded = true;
-    std::cout << "Skipping load" << std::endl;
-  }
-  else
-  {
-    const char* index_dir;
-    if(!PyArg_ParseTuple(args, "s", &index_dir)) {
-        return NULL;
-    }
-    std::string fwd_index_dir = index_dir;
-    fwd_index = new document_index();
-    std::cout << "Loading index" << std::endl;
-    fwd_index->load(fwd_index_dir);
-    std::cout << "Loaded " << to_string(fwd_index->m_size) << std::endl;
-    loaded = true;
-  }
-  Py_RETURN_NONE;
-}
-
-static PyObject *py_generate_fwd_index(PyObject *self, PyObject *args, PyObject *kwargs)
-{
-    const char* index_dir;
-    if(!PyArg_ParseTuple(args, "s", &index_dir)) {
-        return NULL;
-    }
-    std::string ds2i_prefix = index_dir;
-    std::string output_filename = ds2i_prefix + ".fwd";
-    std::unordered_set<uint32_t> stoplist;
-
-    std::cout << "Test 1" << std::endl;
-    document_index idx(ds2i_prefix, stoplist);
-    std::cout << "Test 2" << std::endl;
-    std::ofstream ofs(output_filename, std::ios::binary);
-    std::cout << "Test 3" << std::endl;
-    idx.serialize(ofs);
-    std::cout << "Test 4" << std::endl;
-    Py_RETURN_NONE;
-}
-
 
 static PyObject *py_build_binlex(PyObject *self, PyObject *args, PyObject *kwargs) {
   const char* term_file;
@@ -398,7 +352,7 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
   
     query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*100);
+        topk_queue topk(k*20);
         maxscore_query maxscore_q(topk);
         maxscore_q(
             make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
@@ -421,7 +375,7 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
 }
 
 template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor3(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
+static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor3(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, IndexType* index2) {
   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
   
     query_fun = [&](Query query, Query query2) {
@@ -434,7 +388,9 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
         {
             doc_ids.push_back(std::move(element.second));
         }            
-        return index2->forward_retrieval(query2,k,doc_ids);
+        auto index3 = document_index();
+        index3.load("/home/classanc/big-ann-benchmarks/neurips23/sparse/pisa/pyterrier_pisa/pisa/build/test2");
+        return index3.forward_retrieval(query2,k,doc_ids);
     };
   return query_fun;
 }
@@ -466,11 +422,11 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
 
 
 template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor4(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
+static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor4(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, IndexType* index2) {
   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
   
     query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*10);
+        topk_queue topk(k*20);
         block_max_maxscore_query block_max_maxscore_q(topk);
         block_max_maxscore_q(
           make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
@@ -480,17 +436,24 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
         {
             doc_ids.push_back(std::move(element.second));
         }            
-        return index2->forward_retrieval(query2,k,doc_ids);
+        std::sort(doc_ids.begin(), doc_ids.end());
+
+        topk_queue topk2(k);
+        rescore rescore(topk2);
+        auto local_cursors = make_scored_cursors_2(*index2, query2, true);
+        rescore(local_cursors, doc_ids);
+        topk2.finalize();
+        return topk2.topk();
     };
   return query_fun;
 }
 
 template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor5(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
+static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor5(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, IndexType* index2) {
   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
   
     query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*10);
+        topk_queue topk(k*20);
         block_max_wand_query block_max_wand_q(topk);
         block_max_wand_q(
           make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
@@ -500,7 +463,14 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
         {
             doc_ids.push_back(std::move(element.second));
         }            
-        return index2->forward_retrieval(query2,k,doc_ids);
+        std::sort(doc_ids.begin(), doc_ids.end());
+
+        topk_queue topk2(k);
+        rescore rescore(topk2);
+        auto local_cursors = make_scored_cursors_2(*index2, query2, true);
+        rescore(local_cursors, doc_ids);
+        topk2.finalize();
+        return topk2.topk();
     };
   return query_fun;
 }
@@ -595,7 +565,6 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
 
   void* index = NULL;
   void* index_full = NULL;
-  std::cout << "Starting index" << std::endl;
 
   /**/
   if (false) {  // NOLINT
@@ -605,7 +574,7 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   {                                                                                              \
     index = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path));                  \
     index_full = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path_full));                  \
-    query_fun = get_query_processor3<BOOST_PP_CAT(T, _index)>((BOOST_PP_CAT(T, _index)*)index, wdata, algorithm, k, scorerf, weighted, fwd_index); \
+    query_fun = get_query_processor3<BOOST_PP_CAT(T, _index)>((BOOST_PP_CAT(T, _index)*)index, wdata, algorithm, k, scorerf, weighted, (BOOST_PP_CAT(T, _index)*) index_full); \
     /**/
 
     BOOST_PP_SEQ_FOR_EACH(LOOP_BODY, _, PISA_INDEX_TYPES);
@@ -793,8 +762,6 @@ static PyMethodDef pisathon_methods[] = {
   {"index", py_index, METH_VARARGS, "index"},
   {"merge_inv", py_merge_inv, METH_VARARGS, "merge_inv"},
   {"prepare_index", (PyCFunction) py_prepare_index, METH_VARARGS | METH_KEYWORDS, "prepare_index"},
-  {"prepare_fwd", (PyCFunction) py_prepare_fwd, METH_VARARGS, "prepare_fwd"},
-  {"generate_fwd", (PyCFunction) py_generate_fwd_index, METH_VARARGS, "generate_fwd"},
   {"retrieve", (PyCFunction)py_retrieve, METH_VARARGS | METH_KEYWORDS, "retrieve"},
   {"num_terms", (PyCFunction)py_num_terms, METH_VARARGS, "num_terms"},
   {"num_docs", (PyCFunction)py_num_docs, METH_VARARGS, "num_docs"},
