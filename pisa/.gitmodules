@@ -1,78 +1,78 @@
-[submodule "pisa/external/FastPFor"]
-	path = pisa/external/FastPFor
+[submodule "external/FastPFor"]
+	path = external/FastPFor
 	url = https://github.com/lemire/FastPFor.git
-[submodule "pisa/external/CMake-codecov"]
-	path = pisa/external/CMake-codecov
+[submodule "external/CMake-codecov"]
+	path = external/CMake-codecov
 	url = https://github.com/RWTH-HPC/CMake-codecov.git
-[submodule "pisa/external/streamvbyte"]
-	path = pisa/external/streamvbyte
+[submodule "external/streamvbyte"]
+	path = external/streamvbyte
 	url = https://github.com/lemire/streamvbyte
-[submodule "pisa/external/MaskedVByte"]
-	path = pisa/external/MaskedVByte
+[submodule "external/MaskedVByte"]
+	path = external/MaskedVByte
 	url = https://github.com/lemire/MaskedVByte
-[submodule "pisa/external/QMX"]
-	path = pisa/external/QMX
+[submodule "external/QMX"]
+	path = external/QMX
 	url = https://github.com/amallia/QMX.git
-[submodule "pisa/external/simdcomp"]
-	path = pisa/external/simdcomp
+[submodule "external/simdcomp"]
+	path = external/simdcomp
 	url = https://github.com/lemire/simdcomp.git
-[submodule "pisa/external/CLI11"]
-	path = pisa/external/CLI11
+[submodule "external/CLI11"]
+	path = external/CLI11
 	url = https://github.com/CLIUtils/CLI11.git
-[submodule "pisa/external/parallelstl"]
-	path = pisa/external/parallelstl
+[submodule "external/parallelstl"]
+	path = external/parallelstl
 	url = https://github.com/intel/parallelstl.git
-[submodule "pisa/external/tbb"]
-	path = pisa/external/tbb
+[submodule "external/tbb"]
+	path = external/tbb
 	url = https://github.com/01org/tbb.git
-[submodule "pisa/external/mio"]
-	path = pisa/external/mio
+[submodule "external/mio"]
+	path = external/mio
 	url = https://github.com/mandreyel/mio.git
-[submodule "pisa/external/GSL"]
-	path = pisa/external/GSL
+[submodule "external/GSL"]
+	path = external/GSL
 	url = https://github.com/Microsoft/GSL.git
-[submodule "pisa/external/gumbo-parser"]
-	path = pisa/external/gumbo-parser
+[submodule "external/gumbo-parser"]
+	path = external/gumbo-parser
 	url = https://github.com/google/gumbo-parser.git
-[submodule "pisa/external/Catch2"]
-	path = pisa/external/Catch2
+[submodule "external/Catch2"]
+	path = external/Catch2
 	url = https://github.com/catchorg/Catch2.git
-[submodule "pisa/external/boost-cmake"]
-	path = pisa/external/boost-cmake
+[submodule "external/boost-cmake"]
+	path = external/boost-cmake
 	url = https://github.com/Orphis/boost-cmake.git
-[submodule "pisa/external/Porter2"]
-	path = pisa/external/Porter2
+[submodule "external/Porter2"]
+	path = external/Porter2
 	url = https://github.com/pisa-engine/Porter2.git
-[submodule "pisa/external/warcpp"]
-	path = pisa/external/warcpp
+[submodule "external/warcpp"]
+	path = external/warcpp
 	url = https://github.com/pisa-engine/warcpp.git
-[submodule "pisa/external/spdlog"]
-	path = pisa/external/spdlog
+[submodule "external/spdlog"]
+	path = external/spdlog
 	url = https://github.com/gabime/spdlog.git
-[submodule "pisa/external/fmt"]
-	path = pisa/external/fmt
+[submodule "external/fmt"]
+	path = external/fmt
 	url = https://github.com/fmtlib/fmt.git
-[submodule "pisa/external/range-v3"]
-	path = pisa/external/range-v3
+[submodule "external/range-v3"]
+	path = external/range-v3
 	url = https://github.com/ericniebler/range-v3.git
-[submodule "pisa/external/trecpp"]
-	path = pisa/external/trecpp
+[submodule "external/trecpp"]
+	path = external/trecpp
 	url = https://github.com/pisa-engine/trecpp.git
-[submodule "pisa/external/KrovetzStemmer"]
-	path = pisa/external/KrovetzStemmer
+[submodule "external/KrovetzStemmer"]
+	path = external/KrovetzStemmer
 	url = https://github.com/pisa-engine/KrovetzStemmer.git
-[submodule "pisa/external/wapopp"]
-	path = pisa/external/wapopp
+[submodule "external/wapopp"]
+	path = external/wapopp
 	url = https://github.com/pisa-engine/wapopp.git
-[submodule "pisa/external/rapidcheck"]
-	path = pisa/external/rapidcheck
+[submodule "external/rapidcheck"]
+	path = external/rapidcheck
 	url = https://github.com/emil-e/rapidcheck.git
-[submodule "pisa/external/taily"]
-	path = pisa/external/taily
+[submodule "external/taily"]
+	path = external/taily
 	url = https://github.com/pisa-engine/taily.git
-[submodule "pisa/external/benchmark"]
-	path = pisa/external/benchmark
+[submodule "external/benchmark"]
+	path = external/benchmark
 	url = https://github.com/google/benchmark.git
-[submodule "pisa/external/oneTBB"]
-	path = pisa/external/oneTBB
+[submodule "external/oneTBB"]
+	path = external/oneTBB
 	url = https://github.com/oneapi-src/oneTBB.git
