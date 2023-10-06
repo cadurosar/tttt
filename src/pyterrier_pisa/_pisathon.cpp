@@ -425,17 +425,16 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
   
     query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k);
+        topk_queue topk(k*20);
         wand_query wand_q(topk);
         wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
         topk.finalize();
-        return topk.topk();
-//        std::vector<uint64_t> doc_ids;
-//        for (const auto& element : topk.topk())
-//        {
-//            doc_ids.push_back(std::move(element.second));
-//        }            
-//        return index2->forward_retrieval(query2,k,doc_ids);
+        std::vector<uint64_t> doc_ids;
+        for (const auto& element : topk.topk())
+        {
+            doc_ids.push_back(std::move(element.second));
+        }            
+        return index2->forward_retrieval(query2,k,doc_ids);
     };
   return query_fun;
 }
