@@ -425,7 +425,28 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
   
     query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*30);
+        topk_queue topk(k);
+        wand_query wand_q(topk);
+        wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
+        topk.finalize();
+        return topk.topk();
+//        std::vector<uint64_t> doc_ids;
+//        for (const auto& element : topk.topk())
+//        {
+//            doc_ids.push_back(std::move(element.second));
+//        }            
+//        return index2->forward_retrieval(query2,k,doc_ids);
+    };
+  return query_fun;
+}
+
+/*
+template <typename IndexType, typename WandType, typename ScorerFn>
+static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor4(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
+  std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
+  
+    query_fun = [&](Query query, Query query2) {
+        topk_queue topk(k);
         wand_query wand_q(topk);
         wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
         topk.finalize();
@@ -438,72 +459,7 @@ static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> 
     };
   return query_fun;
 }
-
-// template <typename IndexType, typename WandType, typename ScorerFn>
-// static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor3(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, IndexType* index2) {
-//   std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
-  
-//     query_fun = [&](Query query, Query query2) {
-//         topk_queue topk(k*20);
-//         wand_query wand_q(topk);
-//         wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-//         topk.finalize();
-//         std::vector<uint64_t> doc_ids;
-//         for (const auto& element : topk.topk())
-//         {
-//             doc_ids.push_back(std::move(element.second));
-//         }            
-//         std::sort(doc_ids.begin(), doc_ids.end());
-//         topk_queue topk2(k);
-//         rescore rescore(topk2);
-//         auto local_cursors = make_scored_cursors_2(*index2, query2, true);
-//         rescore(local_cursors, doc_ids);
-//         topk2.finalize();
-//         return topk2.topk();
-//     };
-//   return query_fun;
-// }
-
-
-template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor4(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
-  std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
-  
-    query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*10);
-        block_max_maxscore_query block_max_maxscore_q(topk);
-        block_max_maxscore_q(
-          make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-        topk.finalize();
-        std::vector<uint64_t> doc_ids;
-        for (const auto& element : topk.topk())
-        {
-            doc_ids.push_back(std::move(element.second));
-        }            
-        return index2->forward_retrieval(query2,k,doc_ids);
-    };
-  return query_fun;
-}
-
-template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor5(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
-  std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
-  
-    query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*10);
-        block_max_wand_query block_max_wand_q(topk);
-        block_max_wand_q(
-          make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-        topk.finalize();
-        std::vector<uint64_t> doc_ids;
-        for (const auto& element : topk.topk())
-        {
-            doc_ids.push_back(std::move(element.second));
-        }            
-        return index2->forward_retrieval(query2,k,doc_ids);
-    };
-  return query_fun;
-}
+*/
 
 
 static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
