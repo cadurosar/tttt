@@ -560,10 +560,6 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
           mutex.unlock();
           auto query_res = query_fun(query, query_full);
 
-          // Stabilise the sort by sorting on score (desc), then docid (asc). See <https://github.com/pisa-engine/pisa/issues/508>
-          std::sort(query_res.begin(), query_res.end(), [](auto a, auto b) {
-            return a.first == b.first ? a.second < b.second : a.first > b.first;
-          });
           mutex.lock();
           auto count = k;
           size_t start = arr_idx;
