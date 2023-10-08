@@ -479,8 +479,6 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   tbb::spin_mutex mutex;
   size_t arr_idx = 0;
   std::function<std::vector<typename topk_queue::entry_type>(Query, Query)> query_fun = get_query_processor(scorerf);
-  std::cout << index_path << std::endl;
-  std::cout << wand_path << std::endl;
 
   tbb::parallel_for(size_t(0), size_t(threads), [&, query_fun](size_t thread_idx) {
         PyObject* res;
@@ -605,8 +603,6 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   }
 //  delete index_f;
   delete wdata;
-  std::cout << index_path << std::endl;
-  std::cout << wand_path << std::endl;
   PyBuffer_Release(&result_qidxs);
   PyBuffer_Release(&result_docnos);
   PyBuffer_Release(&result_ranks);
