@@ -24,6 +24,10 @@ class TermProcessor {
     std::function<std::optional<term_id_type>(std::string)> _to_id;
 
   public:
+    TermProcessor()
+    {
+
+    }
     TermProcessor(
         std::optional<std::string> const& terms_file,
         std::optional<std::string> const& stopwords_filename,

@@ -240,6 +240,15 @@ static PyObject *py_prepare_index(PyObject *self, PyObject *args, PyObject *kwar
 
 document_index * fwd_index;
 bool loaded = false;
+block_simdbp_index* index_f = NULL;
+TermProcessor term_processor;
+TermProcessor term_processor_full;
+static std::function<std::vector<typename topk_queue::entry_type>(Query, Query)> query_func;
+std::string wand_path;
+std::string index_path;
+wand_data<wand_data_raw>* wdata;
+unsigned int k;
+bool weighted = true;
 
 static PyObject *py_prepare_fwd(PyObject *self, PyObject *args, PyObject *kwargs) {
   if (loaded)
@@ -273,14 +282,104 @@ static PyObject *py_generate_fwd_index(PyObject *self, PyObject *args, PyObject 
     std::string output_filename = ds2i_prefix + ".fwd";
     std::unordered_set<uint32_t> stoplist;
 
-    std::cout << "Test 1" << std::endl;
     document_index idx(ds2i_prefix, stoplist);
-    std::cout << "Test 2" << std::endl;
     std::ofstream ofs(output_filename, std::ios::binary);
-    std::cout << "Test 3" << std::endl;
     idx.serialize(ofs);
-    std::cout << "Test 4" << std::endl;
     Py_RETURN_NONE;
+}
+
+template <typename ScorerFn>
+static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor(ScorerFn const& scorer) {
+  
+  return [&](Query query, Query query2) {
+        topk_queue topk(k*20);
+        wand_query wand_q(topk);
+        wand_q(make_max_scored_cursors(*index_f, *wdata, *scorer, query, weighted), index_f->num_docs());
+        topk.finalize();
+        std::vector<uint64_t> doc_ids;
+        for (const auto& element : topk.topk())
+        {
+            doc_ids.push_back(std::move(element.second));
+        }            
+        return fwd_index->forward_retrieval(query2,k,doc_ids);
+    };
+}
+
+
+static PyObject *py_prepare_inv(PyObject *self, PyObject *args, PyObject *kwargs)
+{
+  const char* index_dir;
+  const char* index_dir_full;
+  const char* stemmer;
+  const char* scorer_name;
+  const char* stop_fname = "";
+  int pretoks = 0;
+  PyObject* in_queries;
+  unsigned long long block_size = 64;
+  unsigned int in_quantize = 0;
+  unsigned int in_weighted = 0;
+  float bm25_k1 = -100;
+  float bm25_b = -100;
+  float pl2_c = -100;
+  float qld_mu = -100;
+  unsigned int threads = 8;
+
+  /* Parse arguments */
+  // Refer to the documentation for the kwarg type (character) definitions: https://docs.python.org/3/c-api/arg.html
+  // Most notably: s: string, O: PyObject, K: unsigned long long, I: unsigned int, f: float, w*: Py_buffer
+  static const char *kwlist[] = {"index_dir", "index_dir_full","scorer_name", "stemmer", "block_size", "quantize", "bm25_k1", "bm25_b", "pl2_c", "qld_mu", "k", "stop_fname", "threads", "pretokenised", "query_weighted", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssss|KIffffIsIii", const_cast<char **>(kwlist),
+                                     &index_dir, &index_dir_full,&scorer_name, &stemmer, &block_size, &in_quantize, &bm25_k1, &bm25_b, &pl2_c, &qld_mu, &k, &stop_fname, &threads, &pretoks, &in_weighted))
+  {
+      return NULL;
+  }
+
+  fs::path f_index_dir (index_dir);
+  fs::path f_index_dir_full (index_dir_full);
+
+  std::optional<std::string> stemmer_inp = std::nullopt;
+  if (stemmer[0]) {
+    stemmer_inp = stemmer;
+  }
+
+  std::optional<std::string> stop_inp = std::nullopt;
+  if (stop_fname[0]) {
+    stop_inp = stop_fname;
+  }
+
+
+  term_processor = TermProcessor((f_index_dir/"fwd.termlex").string(), stop_inp, stemmer_inp);
+  term_processor_full = TermProcessor((f_index_dir_full/"fwd.termlex").string(), stop_inp, stemmer_inp);
+
+  bool quantize = in_quantize != 0;
+  auto scorer = ScorerParams(scorer_name);
+  if (bm25_k1 != -100) scorer.bm25_k1 = bm25_k1;
+  if (bm25_b  != -100) scorer.bm25_b  = bm25_b;
+  if (pl2_c   != -100) scorer.pl2_c   = pl2_c;
+  if (qld_mu  != -100) scorer.qld_mu  = qld_mu;
+
+  std::string scorer_fmt;
+       if (scorer.name == "bm25") scorer_fmt = fmt::format("{}.k1-{}.b-{}", scorer.name, scorer.bm25_k1, scorer.bm25_b);
+  else if (scorer.name == "saturated_tf") scorer_fmt = fmt::format("{}.k1-{}", scorer.name, scorer.bm25_k1);
+  else if (scorer.name == "pl2") scorer_fmt = fmt::format("{}.c-{}", scorer.name, scorer.pl2_c);
+  else if (scorer.name == "qld") scorer_fmt = fmt::format("{}.mu-{}", scorer.name, scorer.qld_mu);
+  else if (scorer.name == "dph") scorer_fmt = scorer.name;
+  else if (scorer.name == "quantized") scorer_fmt = scorer.name;
+  else return NULL;
+
+  wand_path = (f_index_dir/fmt::format("{}.q{:d}.bmw.{:d}", scorer_fmt, quantize, block_size)).string();
+  index_path = (fmt::format("{}.{}", wand_path, "block_simdbp"));
+
+  fs::path documents_path = f_index_dir/"fwd.doclex";
+
+  weighted = in_weighted == 1;
+
+  std::cout << "Starting index" << std::endl;
+  index_f = new block_simdbp_index(MemorySource::mapped_file(index_path));   // NOLINT
+  std::cout << "Warming up index" << std::endl;
+  index_f->warmup_index();
+  std::cout << "Ending index" << std::endl;
+  Py_RETURN_NONE;
 }
 
 
@@ -303,168 +402,9 @@ static PyObject *py_build_binlex(PyObject *self, PyObject *args, PyObject *kwarg
 }
 
 
-
-
-template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query)> get_query_processor(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted) {
-  std::function<std::vector<typename topk_queue::entry_type>(Query)> query_fun = NULL;
-
-  if (strcmp(algorithm, "wand") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      wand_query wand_q(topk);
-      wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "block_max_wand") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      block_max_wand_query block_max_wand_q(topk);
-      block_max_wand_q(
-        make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "block_max_maxscore") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      block_max_maxscore_query block_max_maxscore_q(topk);
-      block_max_maxscore_q(
-        make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "block_max_ranked_and") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      block_max_ranked_and_query block_max_ranked_and_q(topk);
-      block_max_ranked_and_q(
-        make_block_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "ranked_and") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      ranked_and_query ranked_and_q(topk);
-      ranked_and_q(make_scored_cursors(*index, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "ranked_or") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      ranked_or_query ranked_or_q(topk);
-      ranked_or_q(make_scored_cursors(*index, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "maxscore") == 0) {
-    query_fun = [&, index, wdata, k, weighted](Query query) {
-      topk_queue topk(k);
-      maxscore_query maxscore_q(topk);
-      maxscore_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "ranked_or_taat") == 0) {
-    query_fun = [&, index, wdata, k, weighted, accumulator = Simple_Accumulator(index->num_docs())](Query query) mutable {
-      topk_queue topk(k);
-      ranked_or_taat_query ranked_or_taat_q(topk);
-      ranked_or_taat_q(
-        make_scored_cursors(*index, *scorer, query, weighted), index->num_docs(), accumulator);
-      topk.finalize();
-      return topk.topk();
-    };
-  } else if (strcmp(algorithm, "ranked_or_taat_lazy") == 0) {
-    query_fun = [&, index, wdata, k, weighted, accumulator = Lazy_Accumulator<4>(index->num_docs())](Query query) mutable {
-      topk_queue topk(k);
-      ranked_or_taat_query ranked_or_taat_q(topk);
-      ranked_or_taat_q(
-        make_scored_cursors(*index, *scorer, query), index->num_docs(), accumulator);
-      topk.finalize();
-      return topk.topk();
-    };
-  }  else {
-    spdlog::error("Unsupported query type: {}", algorithm);
-  }
-
-  return query_fun;
-}
-
-template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor2(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, IndexType* index2) {
-  std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
-  
-    query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*100);
-        maxscore_query maxscore_q(topk);
-        maxscore_q(
-            make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-        topk.finalize();
-        std::vector<uint64_t> doc_ids;
-        for (const auto& element : topk.topk())
-        {
-            doc_ids.push_back(std::move(element.second));
-        }            
-        std::sort(doc_ids.begin(), doc_ids.end());
-
-        topk_queue topk2(k);
-        rescore rescore(topk2);
-        auto local_cursors = make_scored_cursors_2(*index2, query2, true);
-        rescore(local_cursors, doc_ids);
-        topk2.finalize();
-        return topk2.topk();
-    };
-  return query_fun;
-}
-
-template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor3(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
-  std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
-  
-    query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k*20);
-        wand_query wand_q(topk);
-        wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-        topk.finalize();
-        std::vector<uint64_t> doc_ids;
-        for (const auto& element : topk.topk())
-        {
-            doc_ids.push_back(std::move(element.second));
-        }            
-        return index2->forward_retrieval(query2,k,doc_ids);
-    };
-  return query_fun;
-}
-
-/*
-template <typename IndexType, typename WandType, typename ScorerFn>
-static std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> get_query_processor4(IndexType* index, WandType* wdata, const char* algorithm, unsigned int k, ScorerFn const& scorer, bool weighted, document_index * index2) {
-  std::function<std::vector<typename topk_queue::entry_type>(Query,Query)> query_fun = NULL;
-  
-    query_fun = [&](Query query, Query query2) {
-        topk_queue topk(k);
-        wand_query wand_q(topk);
-        wand_q(make_max_scored_cursors(*index, *wdata, *scorer, query, weighted), index->num_docs());
-        topk.finalize();
-        std::vector<uint64_t> doc_ids;
-        for (const auto& element : topk.topk())
-        {
-            doc_ids.push_back(std::move(element.second));
-        }            
-        return index2->forward_retrieval(query2,k,doc_ids);
-    };
-  return query_fun;
-}
-*/
-
-
 static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   const char* index_dir;
   const char* encoding;
-  const char* index_dir_full;
   const char* algorithm;
   const char* stemmer;
   const char* scorer_name;
@@ -489,12 +429,18 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   /* Parse arguments */
   // Refer to the documentation for the kwarg type (character) definitions: https://docs.python.org/3/c-api/arg.html
   // Most notably: s: string, O: PyObject, K: unsigned long long, I: unsigned int, f: float, w*: Py_buffer
-  static const char *kwlist[] = {"index_dir", "encoding", "index_dir_full","algorithm", "scorer_name", "stemmer", "queries", "block_size", "quantize", "bm25_k1", "bm25_b", "pl2_c", "qld_mu", "k", "stop_fname", "threads", "pretokenised", "query_weighted", "result_qidxs", "result_docnos", "result_ranks", "result_scores", NULL};
-  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "ssssssO|KIffffIsIiiw*w*w*w*", const_cast<char **>(kwlist),
-                                     &index_dir, &encoding, &index_dir_full, &algorithm, &scorer_name, &stemmer, &in_queries, &block_size, &in_quantize, &bm25_k1, &bm25_b, &pl2_c, &qld_mu, &k, &stop_fname, &threads, &pretoks, &in_weighted, &result_qidxs, &result_docnos, &result_ranks, &result_scores))
+  static const char *kwlist[] = {"index_dir", "encoding","algorithm", "scorer_name", "stemmer", "queries", "block_size", "quantize", "bm25_k1", "bm25_b", "pl2_c", "qld_mu", "k", "stop_fname", "threads", "pretokenised", "query_weighted", "result_qidxs", "result_docnos", "result_ranks", "result_scores", NULL};
+  if (!PyArg_ParseTupleAndKeywords(args, kwargs, "sssssO|KIffffIsIiiw*w*w*w*", const_cast<char **>(kwlist),
+                                     &index_dir, &encoding, &algorithm, &scorer_name, &stemmer, &in_queries, &block_size, &in_quantize, &bm25_k1, &bm25_b, &pl2_c, &qld_mu, &k, &stop_fname, &threads, &pretoks, &in_weighted, &result_qidxs, &result_docnos, &result_ranks, &result_scores))
   {
       return NULL;
   }
+  fs::path f_index_dir (index_dir);
+  fs::path documents_path = f_index_dir/"fwd.doclex";
+
+  auto source = std::make_shared<mio::mmap_source>(documents_path.string().c_str());
+  auto docmap = Payload_Vector<>::from(*source);
+
 
   auto in_queries_len = PyObject_Length(in_queries);
   if (in_queries_len == -1) {
@@ -502,23 +448,6 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
     return NULL;
   }
 
-  fs::path f_index_dir (index_dir);
-  fs::path f_index_dir_full (index_dir_full);
-
-  std::optional<std::string> stemmer_inp = std::nullopt;
-  if (stemmer[0]) {
-    stemmer_inp = stemmer;
-  }
-
-  std::optional<std::string> stop_inp = std::nullopt;
-  if (stop_fname[0]) {
-    stop_inp = stop_fname;
-  }
-
-  auto term_processor = TermProcessor((f_index_dir/"fwd.termlex").string(), stop_inp, stemmer_inp);
-  auto term_processor_full = TermProcessor((f_index_dir_full/"fwd.termlex").string(), stop_inp, stemmer_inp);
-
-  bool quantize = in_quantize != 0;
   auto scorer = ScorerParams(scorer_name);
   if (bm25_k1 != -100) scorer.bm25_k1 = bm25_k1;
   if (bm25_b  != -100) scorer.bm25_b  = bm25_b;
@@ -534,43 +463,13 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   else if (scorer.name == "quantized") scorer_fmt = scorer.name;
   else return NULL;
 
-  auto wand_path = f_index_dir/fmt::format("{}.q{:d}.bmw.{:d}", scorer_fmt, quantize, block_size);
-  auto index_path = (fmt::format("{}.{}", wand_path.string(), encoding));
 
-  auto wand_path_full = f_index_dir_full/fmt::format("{}.q{:d}.bmw.{:d}", scorer_fmt, quantize, block_size);
-  auto index_path_full = (fmt::format("{}.{}", wand_path_full.string(), encoding));
+  wand_path = (f_index_dir/fmt::format("{}.q{:d}.bmw.{:d}", scorer_fmt, false, block_size)).string();
+  wdata = new wand_data<wand_data_raw>(MemorySource::mapped_file(wand_path));
 
-  auto documents_path = f_index_dir/"fwd.doclex";
-
-  std::function<std::vector<typename topk_queue::entry_type>(Query, Query)> query_fun = NULL;
-  auto wdata_mmap = MemorySource::mapped_file(wand_path.string());
-  wand_data<wand_data_raw>* wdata = new wand_data<wand_data_raw>(MemorySource::mapped_file(wand_path.string()));
   auto scorerf = scorer::from_params(scorer, *wdata);
-  bool weighted = in_weighted == 1;
 
-  void* index = NULL;
-  void* index_full = NULL;
-  std::cout << "Starting index" << std::endl;
 
-  /**/
-  if (false) {  // NOLINT
-#define LOOP_BODY(R, DATA, T)                                                                    \
-  }                                                                                              \
-  else if (strcmp(encoding, BOOST_PP_STRINGIZE(T)) == 0)                                         \
-  {                                                                                              \
-    index = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path));                  \
-    index_full = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path));                  \
-    query_fun = get_query_processor3<BOOST_PP_CAT(T, _index)>((BOOST_PP_CAT(T, _index)*)index, wdata, algorithm, k, scorerf, weighted, fwd_index); \
-    /**/
-
-    BOOST_PP_SEQ_FOR_EACH(LOOP_BODY, _, PISA_INDEX_TYPES);
-#undef LOOP_BODY
-  } else {
-    spdlog::error("Unknown type {}", encoding);
-  }
-
-  auto source = std::make_shared<mio::mmap_source>(documents_path.string().c_str());
-  auto docmap = Payload_Vector<>::from(*source);
   int32_t *qidxs = (int32_t*)result_qidxs.buf;
   PyObject **docnos = (PyObject**)result_docnos.buf;
   int32_t *ranks = (int32_t*)result_ranks.buf;
@@ -579,6 +478,9 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   auto iter = PyObject_GetIter(in_queries);
   tbb::spin_mutex mutex;
   size_t arr_idx = 0;
+  std::function<std::vector<typename topk_queue::entry_type>(Query, Query)> query_fun = get_query_processor(scorerf);
+  std::cout << index_path << std::endl;
+  std::cout << wand_path << std::endl;
 
   tbb::parallel_for(size_t(0), size_t(threads), [&, query_fun](size_t thread_idx) {
         PyObject* res;
@@ -701,21 +603,10 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   if (PyErr_CheckSignals() != 0) {
     return NULL;
   }
-
-  if (false) {  // NOLINT
-#define LOOP_BODY(R, DATA, T)                                                                    \
-  }                                                                                              \
-  else if (strcmp(encoding, BOOST_PP_STRINGIZE(T)) == 0)                                         \
-  {                                                                                              \
-    delete (BOOST_PP_CAT(T, _index)*)index;                                                      \
-    delete (BOOST_PP_CAT(T, _index)*)index_full;                                                      \
-    /**/
-
-    BOOST_PP_SEQ_FOR_EACH(LOOP_BODY, _, PISA_INDEX_TYPES);
-#undef LOOP_BODY
-  }
+//  delete index_f;
   delete wdata;
-
+  std::cout << index_path << std::endl;
+  std::cout << wand_path << std::endl;
   PyBuffer_Release(&result_qidxs);
   PyBuffer_Release(&result_docnos);
   PyBuffer_Release(&result_ranks);
@@ -749,6 +640,7 @@ static PyMethodDef pisathon_methods[] = {
   {"merge_inv", py_merge_inv, METH_VARARGS, "merge_inv"},
   {"prepare_index", (PyCFunction) py_prepare_index, METH_VARARGS | METH_KEYWORDS, "prepare_index"},
   {"prepare_fwd", (PyCFunction) py_prepare_fwd, METH_VARARGS, "prepare_fwd"},
+  {"prepare_inv", (PyCFunction) py_prepare_inv, METH_VARARGS | METH_KEYWORDS, "prepare_fwd"},
   {"generate_fwd", (PyCFunction) py_generate_fwd_index, METH_VARARGS, "generate_fwd"},
   {"retrieve", (PyCFunction)py_retrieve, METH_VARARGS | METH_KEYWORDS, "retrieve"},
   {"num_terms", (PyCFunction)py_num_terms, METH_VARARGS, "num_terms"},

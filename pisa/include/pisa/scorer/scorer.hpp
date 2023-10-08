@@ -17,7 +17,7 @@ struct ScorerParams {
 
     std::string name;
     float bm25_b = 0.4;
-    float bm25_k1 = 0.9;
+    float bm25_k1 = 100;
     float pl2_c = 1;
     float qld_mu = 1000;
 };
