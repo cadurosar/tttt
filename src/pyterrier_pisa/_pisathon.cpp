@@ -559,7 +559,7 @@ static PyObject *py_retrieve(PyObject *self, PyObject *args, PyObject *kwargs) {
   else if (strcmp(encoding, BOOST_PP_STRINGIZE(T)) == 0)                                         \
   {                                                                                              \
     index = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path));                  \
-    index_full = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path_full));                  \
+    index_full = new BOOST_PP_CAT(T, _index)(MemorySource::mapped_file(index_path));                  \
     query_fun = get_query_processor3<BOOST_PP_CAT(T, _index)>((BOOST_PP_CAT(T, _index)*)index, wdata, algorithm, k, scorerf, weighted, fwd_index); \
     /**/
 
